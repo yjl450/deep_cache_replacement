@@ -41,7 +41,7 @@ def create_inout_sequences(input_x,freq,rec,tw):
 
 
 def get_miss_dataloader(batch_size,window_size,n_files):
-    PATH = "dataset/misses/train"
+    PATH = "dataset/misses"
     EXT = "*.csv"
     all_csv_files = [file
                     for path, subdir, files in os.walk(PATH)
