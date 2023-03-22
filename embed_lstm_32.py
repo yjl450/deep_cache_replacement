@@ -11,6 +11,11 @@ from collections import Counter, deque, defaultdict
 import argparse
 from tqdm import tqdm
 from torchsummary import summary
+import random
+# device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
+
 
 def hex_to_bin(string):
     scale = 16
@@ -126,12 +131,12 @@ class ByteEncoder(nn.Module):
             self.pc_embeddings.append(nn.Embedding(vocab_sizes_pc[i],embedding_size * context_size))
 
         for i in range(4):
-            self.linears_address_1.append(nn.Linear(embedding_size * context_size,hidden_size))
-            self.linears_pc_1.append(nn.Linear(embedding_size * context_size,hidden_size))
+            self.linears_address_1.append(nn.Linear(embedding_size * context_size,hidden_size).to(device))
+            self.linears_pc_1.append(nn.Linear(embedding_size * context_size,hidden_size).to(device))
 
         for i in range(4):
-            self.linears_address_2.append(nn.Linear(hidden_size,vocab_sizes_address[i]))
-            self.linears_pc_2.append(nn.Linear(hidden_size,vocab_sizes_pc[i]))
+            self.linears_address_2.append(nn.Linear(hidden_size,vocab_sizes_address[i]).to(device))
+            self.linears_pc_2.append(nn.Linear(hidden_size,vocab_sizes_pc[i]).to(device))
         
         self.address_embeddings = nn.ModuleList(self.address_embeddings)
         self.linears_address_1 = nn.ModuleList(self.linears_address_1)
@@ -144,7 +149,7 @@ class ByteEncoder(nn.Module):
                
 
     def forward(self, inputs,token):
-        
+
         # 4 inputs (4 bytes) for each address
         address_inputs = []
         for i in range(4):
@@ -160,12 +165,12 @@ class ByteEncoder(nn.Module):
         # Embedding Calculation for address
         address_embeds = []
         for i in range(4):
-            address_embeds.append(self.address_embeddings[i](address_inputs[i]).view((1, -1)))
+            address_embeds.append(self.address_embeddings[i](address_inputs[i]).view((1, -1)).to(device))
 
         # Embedding Calculation for PC
         pc_embeds = []
         for i in range(4):
-            pc_embeds.append(self.pc_embeddings[i](pc_inputs[i]).view((1, -1)))
+            pc_embeds.append(self.pc_embeddings[i](pc_inputs[i]).view((1, -1)).to(device))
 
         # outputs by 1st set of linear layers for address
         address_outs_1 = []
@@ -197,10 +202,10 @@ class ByteEncoder(nn.Module):
         return log_probs
 
 def w2vec_loss(outputs,targets):
-    loss = torch.tensor(0,dtype=torch.float)
+    loss = torch.tensor(0,dtype=torch.float).to(device)
     loss_function = nn.NLLLoss()
     for output,target in zip(outputs,targets):
-        loss+=loss_function(output,target)
+        loss+=loss_function(output.to(device),target.to(device))
     return loss
 
 class Trainer:
@@ -316,12 +321,28 @@ def main(args):
     optimizer = optim.Adam(encoder.parameters(),lr=3e-3,weight_decay=1e-3)
 
     trainer = Trainer(model=encoder,optimizer=optimizer,best_loss=best_loss)
+    if False:
+        pairs = []
+        for d in dataset:
+            for i in range(len(d[0])):
+                pairs.append((d[0][i], d[1][i]))
+            # rearrange[0] += d[0]
+            # rearrange[1] += d[1]
+        random.shuffle(pairs)
+        rearrange = [[], []]
+        for p,q in pairs:
+            rearrange[0].append(p)
+            rearrange[1].append(q)
 
-    for i in range(len(dataset)):
-        print('Training for dataset: {}'.format(i+1))
-        train(trainer=trainer,inputs=dataset[i],tkn=token,arguments=args,num=i+1)
+        train(trainer=trainer,inputs=rearrange,tkn=token,arguments=args,num=i+1)
         print('Best Loss: {}'.format(trainer.best_loss))
         print('----------------------------------------')
+    else:
+        for i in range(len(dataset)):
+            print('Training for dataset: {}'.format(i+1))
+            train(trainer=trainer,inputs=dataset[i],tkn=token,arguments=args,num=i+1)
+            print('Best Loss: {}'.format(trainer.best_loss))
+            print('----------------------------------------')
 
 
 
@@ -329,7 +350,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='HTMLPhish')
     parser.add_argument('--path', type=str, required=True,
                         help='path to dir containing the csv files')
-    parser.add_argument('path to dir containing the csv files', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs')
     parser.add_argument('--embed_dim', type=int, default=20,
                         help='embedding dimension')
@@ -338,5 +359,5 @@ if __name__=='__main__':
     parser.add_argument('--hidden_size', type=int, default=128,
                         help='dimension of hidden layer')                  
     args = parser.parse_args()
-
+    # dataset = get_data(args.path)
     main(args)
