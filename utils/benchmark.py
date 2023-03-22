@@ -22,8 +22,11 @@ function_dict = NewDict({"LRU" : LRU,
                          "ARC" : Arc,
                          "LECAR" : Lecar})
 
-def get_hit_rate_across_datasets(algo_name,cache_size):
-    PATH = "data/csv_data"
+def get_hit_rate_across_datasets(algo_name,cache_size, p=None):
+    if p is None:
+        PATH = "dataset/misses"
+    else:
+        PATH = p
     EXT = "*.csv"
     all_csv_files = [file
                     for path, subdir, files in os.walk(PATH)
@@ -37,7 +40,7 @@ def get_hit_rate_across_datasets(algo_name,cache_size):
     for i, path in enumerate(all_csv_files) :
         # print("File {} / {}".format(i+1, len(all_csv_files)))
         df = pd.read_csv(path)
-        print(path)
+        # print(path)
 
         trace = df['Address'].tolist()
 

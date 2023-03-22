@@ -11,13 +11,11 @@ from embed_lstm_32 import Token
 from sklearn.neighbors import KernelDensity
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
-from create_train_dataset import get_miss_dataloader
+from create_train_dataset import get_miss_dataloader, device
 from torchsummary import summary
 import argparse
 import os
 from torch.utils.tensorboard import SummaryWriter
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def get_bytes(x):
     
@@ -127,16 +125,16 @@ class DeepCache(nn.Module):
         self.emb_size = int(input_size/2)
 
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first = True) #lstm model
-        self.lstm_decoder = Decoder_lstm(self.hidden_size, self.output_size) # decoder to get address predictions
+        self.lstm_decoder = Decoder_lstm(self.hidden_size, self.output_size).to(device) # decoder to get address predictions
        
 
-        self.rec_freq_decoder = Decoder((input_size//2)*3) # decoder to get freq and rec
+        self.rec_freq_decoder = Decoder((input_size//2)*3).to(device) # decoder to get freq and rec
         
-        self.embed_encoder = torch.load("checkpoints/byte_encoder_32.pt") # byte -> embedding encoder
+        self.embed_encoder = torch.load("checkpoints/byte_encoder_32.pt").to(device) # byte -> embedding encoder
         for param in self.embed_encoder.parameters(): 
              param.requires_grad = False
-        self.encoder_mlp = Encoder(int(self.input_size/2)) # 4 byte embeddings -> address embeddings
-        self.time_distributed_encoder_mlp = TimeDistributed(self.encoder_mlp,batch_first=True) # wrapper function to make encoder time distributed
+        self.encoder_mlp = Encoder(int(self.input_size/2)).to(device) # 4 byte embeddings -> address embeddings
+        self.time_distributed_encoder_mlp = TimeDistributed(self.encoder_mlp,batch_first=True).to(device) # wrapper function to make encoder time distributed
 
 
     def get_freq_rec(self, x, dist_vector):
@@ -147,7 +145,7 @@ class DeepCache(nn.Module):
         for i in range(4):
             byte_embeddings.append(torch.matmul(x[i], self.embed_encoder.address_embeddings[i].weight))  
         
-        final_embedding = torch.cat(byte_embeddings , dim=-1) # concatenate all bytes' embeddings
+        final_embedding = torch.cat(byte_embeddings , dim=-1).to(device) # concatenate all bytes' embeddings
         final_embedding = self.encoder_mlp(final_embedding).squeeze(0) # get address embedding from 4 byte embeddings
 
 
@@ -212,8 +210,8 @@ class DeepCache(nn.Module):
         pc      = input[:,:,0:1] 
         address = input[:,:,1:2] # Address value in decimal
         
-        pc_embed = self.get_embed_pc(pc) # Convert decimal address to 4 byte embeddings using pretrained embeddings
-        addr_embed = self.get_embed_addr(address)
+        pc_embed = self.get_embed_pc(pc).to(device) # Convert decimal address to 4 byte embeddings using pretrained embeddings
+        addr_embed = self.get_embed_addr(address).to(device)
         # time distributed MLP because we need to apply it on every element of the sequence
         embeddings_pc = self.time_distributed_encoder_mlp(pc_embed) # Convert 4byte embedding to a single address embedding using an MLP
         embeddings_address = self.time_distributed_encoder_mlp(addr_embed)
@@ -264,7 +262,7 @@ if __name__=='__main__':
     mse_loss = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     print('Loading Data')
-    dataloader = get_miss_dataloader(batch_size, window_size, n_files)
+    dataloader = get_miss_dataloader(batch_size, window_size, 1)
     print('Num_Batches: {}'.format(len(dataloader)))
     print('------------------------------------')
     best_loss = 1e30
@@ -273,7 +271,7 @@ if __name__=='__main__':
         i = 0
         for (seq,labels) in tqdm(dataloader):
             i+=1
-            
+
             optimizer.zero_grad()
             hidden_cell = (torch.zeros(1, batch_size, model.hidden_size).to(device), # reinitialise hidden state for each new sample
                             torch.zeros(1, batch_size, model.hidden_size).to(device))

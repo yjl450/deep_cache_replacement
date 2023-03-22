@@ -8,7 +8,8 @@ import torch
 from embed_lstm_32 import ByteEncoder
 from embed_lstm_32 import Token
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
 
 class miss_dataset(Dataset):
     def __init__(self, train_x , train_y):
@@ -46,7 +47,7 @@ def get_miss_dataloader(batch_size,window_size,n_files):
     all_csv_files = [file
                     for path, subdir, files in os.walk(PATH)
                     for file in glob(os.path.join(path, EXT))]
-
+    print(all_csv_files)
 
     total_len = 0
     count_files = 0

@@ -13,7 +13,8 @@ import argparse
 from embed_lstm_32 import ByteEncoder
 from sklearn.neighbors import KernelDensity
 import pandas as pd
-
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
 
 def create_inout_sequences(input_x,tw):
     L = input_x.shape[0]
@@ -79,8 +80,8 @@ def get_embeddings(addresses,pcs,deepcache):
     pc_embed = deepcache.get_embed_pc(pc) # Convert decimal address to 4 byte embeddings using pretrained embeddings
     addr_embed = deepcache.get_embed_addr(address)
     # time distributed MLP because we need to apply it on every element of the sequence
-    embeddings_pc = deepcache.time_distributed_encoder_mlp(pc_embed) # Convert 4byte embedding to a single address embedding using an MLP
-    embeddings_address = deepcache.time_distributed_encoder_mlp(addr_embed)
+    embeddings_pc = deepcache.time_distributed_encoder_mlp(pc_embed.to(device)) # Convert 4byte embedding to a single address embedding using an MLP
+    embeddings_address = deepcache.time_distributed_encoder_mlp(addr_embed.to(device))
     # concat pc and adress emeddings
     embeddings = torch.cat([embeddings_pc,embeddings_address] ,dim=-1)
     return embeddings
@@ -126,11 +127,13 @@ def get_prefetch(misses_address,misses_pc,deepcache):
 
 def test_cache_sim(cache_size, ads, ps, misses_window, miss_history_length):
     hit_rates = []
-    deepcache = torch.load("checkpoints/deep_cache.pt")
+    deepcache = torch.load("checkpoints/deep_cache.pt").to(device)
     lecar = LeCaR(cache_size)
     print('Total Batches: {}'.format(int(len(ads)/10000)))
 
-    for j in range(int(len(ads)/10000)):
+    # for j in range(int(len(ads)/10000)):
+    for j in range(1):
+        print(j)
         hidden_size = 40
         cache_address = []
         cache_pc = []
