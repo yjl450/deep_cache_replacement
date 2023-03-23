@@ -8,8 +8,8 @@ import torch
 from embed_lstm_32 import ByteEncoder
 from embed_lstm_32 import Token
 
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = torch.device('cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class miss_dataset(Dataset):
     def __init__(self, train_x , train_y):
@@ -42,7 +42,7 @@ def create_inout_sequences(input_x,freq,rec,tw):
 
 
 def get_miss_dataloader(batch_size,window_size,n_files):
-    PATH = "dataset/misses"
+    PATH = "dataset/exceptgpp"
     EXT = "*.csv"
     all_csv_files = [file
                     for path, subdir, files in os.walk(PATH)

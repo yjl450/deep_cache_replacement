@@ -33,11 +33,10 @@ def get_pred_loss(pred, target, xe_loss):
     for i in range(target.shape[0]):
         target_batch[i] = get_bytes(target[i]) # convert dec to bytes ( since target is in byte (0-255))
 
-
     for i in range(4):
         logits = pred[i].squeeze(0)
         logits = logits
-        total_loss+=xe_loss(logits,target_batch[:,i])
+        total_loss+=xe_loss(logits.to(device),target_batch[:,i].to(device))
     return total_loss
 
 
@@ -161,10 +160,11 @@ class DeepCache(nn.Module):
         for i in range(input.shape[0]):
             kde = KernelDensity()    # fit KDE
             try :
-                kde.fit(input[i].detach())
-            except:
+                kde.fit(input[i].cpu().detach())
+            except Exception as e:
                 print("i:",i)
                 print('-----------------------------------')
+                raise e
                 exit()
             n_samples = 200
             
@@ -174,7 +174,7 @@ class DeepCache(nn.Module):
             random_samples = torch.from_numpy(random_samples.astype(float))
             dist_vector[i] = torch.mean(random_samples , axis = 0)
 
-        return dist_vector
+        return dist_vector.to(device)
 
     def get_embed_pc(self, address):
         b,s,_ = list(address.shape)
@@ -262,7 +262,7 @@ if __name__=='__main__':
     mse_loss = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     print('Loading Data')
-    dataloader = get_miss_dataloader(batch_size, window_size, 1)
+    dataloader = get_miss_dataloader(batch_size, window_size, 100)
     print('Num_Batches: {}'.format(len(dataloader)))
     print('------------------------------------')
     best_loss = 1e30
@@ -307,7 +307,7 @@ if __name__=='__main__':
         if np.mean(losses) < best_loss:
             best_loss = np.mean(losses)
             best_epoch = epoch+1
-            torch.save(model, 'checkpoints/deep_cache_grep_sigmoid_10.pt')
+            torch.save(model, f'checkpoints/deep_cache_grep_{epoch+1}.pt')
             print('Saved at epoch {} with loss: {}'.format(epoch+1,np.mean(losses)))
             print('---------------------')
     print('---------------------')

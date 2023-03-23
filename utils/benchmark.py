@@ -24,7 +24,7 @@ function_dict = NewDict({"LRU" : LRU,
 
 def get_hit_rate_across_datasets(algo_name,cache_size, p=None):
     if p is None:
-        PATH = "dataset/misses"
+        PATH = "dataset/gpp"
     else:
         PATH = p
     EXT = "*.csv"
